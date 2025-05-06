@@ -1,48 +1,37 @@
 package org.example;
 
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.select.Elements;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.example.downloader.ImageDownloader;
+import org.example.downloader.WebScrapper;
 
-import java.io.*;
-import java.net.URL;
-import java.net.URLConnection;
-import java.util.HashSet;
+import java.util.Set;
 
 
 public class Main {
-    private static int number = 1;
+    public static final Logger infoLogger = LogManager.getLogger("queries");
+    public static final Logger errorsLogger = LogManager.getLogger("errors"); // error logging
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args){
         String url = "https://www.imdb.com/";
-        Document doc = Jsoup.connect(url).get();
-        Elements select = doc.select("img");
-        HashSet<String> links = new HashSet<>();
-        select.forEach(image -> links.add(image.attr("abs:src")));
+        String dirPath = "./images";
+
+        WebScrapper webScrapper = new WebScrapper(url);
+        Set<String> links = webScrapper.getImageLinks();
+
+        ImageDownloader imageDownloader = new ImageDownloader(dirPath);
 
         for (String link : links) {
-            String extension = link
-                    .replaceAll("^.+\\.", "")
-                    .replace("?.+$", "");
-            String filePath = "data/" + number++ + "." + extension;
-            try {
-                download(link, filePath);
-            } catch (Exception e) {
-                System.out.println("Couldn't download " + link);
-            }
+            download(imageDownloader, link);
         }
     }
 
-    public static void download(String link, String filePath) throws IOException {
-        URLConnection connection = new URL(link).openConnection();
-        InputStream inStream = connection.getInputStream();
-        FileOutputStream fileOutputStream = new FileOutputStream(filePath);
-        int b;
-        while ((b = inStream.read()) != -1) {
-            fileOutputStream.write(b);
+    private static void download(ImageDownloader imageDownloader, String link) {
+        try {
+            String downloadedFilePath = imageDownloader.download(link);
+            infoLogger.info("Зображення за посиланням {} успішно завантажено в файл {}", link, downloadedFilePath);
+        } catch (RuntimeException e) {
+            errorsLogger.error("Помилка скачування файла {} в директорію {}", link, imageDownloader.getDirPath());
         }
-        fileOutputStream.flush();
-        fileOutputStream.close();
-        inStream.close();
     }
 }
